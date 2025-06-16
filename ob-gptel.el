@@ -58,6 +58,12 @@ and the result in the ASSISTANT role."
                   (nconc directives (list (org-babel-read-result))))))))))
     directives))
 
+(defun ob-gptel--add-context (context)
+  "Call `gptel--transform-add-context' with the given CONTEXT."
+  #'(lambda (callback fsm)
+      (setq-local gptel-context--alist (mapcar #'list context))
+      (gptel--transform-add-context callback fsm)))
+
 (defun org-babel-execute:gptel (body params)
   "Execute a gptel source block with BODY and PARAMS.
 This function sends the BODY text to GPTel and returns the response."
@@ -91,8 +97,6 @@ This function sends the BODY text to GPTel and returns the response."
         (setq-local gptel--system-message system-message))
       (when stream
         (setq-local gptel-stream (not (member stream '("no" "nil" "false")))))
-      (when context
-        (setq-local gptel-context--alist context))
       (when backend-name
         (let ((backend (gptel-get-backend backend-name)))
           (when backend
@@ -113,8 +117,8 @@ This function sends the BODY text to GPTel and returns the response."
                             (when (search-forward ob-gptel--uuid nil t)
                               (replace-match (string-trim response) nil t)))))))
                 :buffer (current-buffer)
-                :transforms '(gptel--transform-apply-preset
-                              gptel--transform-add-context)
+                :transforms (list #'gptel--transform-apply-preset
+                                  (ob-gptel--add-context context))
                 :system (and prompt
                              (with-current-buffer buffer
                                (ob-gptel-find-prompt prompt system-message)))
