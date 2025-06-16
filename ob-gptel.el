@@ -30,8 +30,32 @@
     (:max-tokens . nil)
     (:system . nil)
     (:stream . nil)
-    (:backend . nil))
+    (:backend . nil)
+    (:dry-run . nil)
+    (:prompt . nil))
   "Default header arguments for gptel source blocks.")
+
+(defun ob-gptel-find-prompt (prompt &optional system-message)
+  "Given a PROMPT identifier, find the block/result pair it names.
+The result is a directive in the format of `gptel-directives', which
+includes the SYSTEM-MESSAGE, the block as a message in the USER role,
+and the result in the ASSISTANT role."
+  (let ((directives (list system-message)))
+    (let ((block (org-babel-find-named-block prompt)))
+      (when block
+        (save-excursion
+          (goto-char block)
+          (let ((info (and block
+                           (save-excursion
+                             (goto-char block)
+                             (org-babel-get-src-block-info)))))
+            (when info
+              (nconc directives (list (and info (nth 1 info))))
+              (let ((result (org-babel-where-is-src-block-result nil info)))
+                (when result
+                  (goto-char result)
+                  (nconc directives (list (org-babel-read-result))))))))))
+    directives))
 
 (defun org-babel-execute:gptel (body params)
   "Execute a gptel source block with BODY and PARAMS.
@@ -42,6 +66,8 @@ This function sends the BODY text to GPTel and returns the response."
          (system-message (cdr (assoc :system params)))
          (stream (cdr (assoc :stream params)))
          (backend-name (cdr (assoc :backend params)))
+         (prompt (cdr (assoc :prompt params)))
+         (dry-run (cdr (assoc :dry-run params)))
          (original-model gptel-model)
          (original-temperature gptel-temperature)
          (original-max-tokens gptel-max-tokens)
@@ -67,23 +93,35 @@ This function sends the BODY text to GPTel and returns the response."
         (let ((backend (gptel-get-backend backend-name)))
           (when backend
             (setq-local gptel-backend backend))))
-      (let ((ob-gptel--uuid (concat "<gptel_thinking_" (uuidgen-1) ">")))
-        (gptel-request
-            body
-          :callback
-          #'(lambda (response info)
-              (when (stringp response)
-                (with-current-buffer buffer
-                  (save-excursion
-                    (save-restriction
-                      (widen)
-                      (goto-char (point-min))
-                      (when (search-forward ob-gptel--uuid nil t)
-                        (replace-match (string-trim response) nil t)))))
-                (funcall komplete response)))
-          :buffer (current-buffer)
-          :stream nil)
-        ob-gptel--uuid))))
+      (setq dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
+      (let* ((ob-gptel--uuid (concat "<gptel_thinking_" (uuidgen-1) ">"))
+             (fsm
+              (gptel-request
+                  body
+                :callback
+                #'(lambda (response info)
+                    (when (stringp response)
+                      (with-current-buffer buffer
+                        (save-excursion
+                          (save-restriction
+                            (widen)
+                            (goto-char (point-min))
+                            (when (search-forward ob-gptel--uuid nil t)
+                              (replace-match (string-trim response) nil t)))))))
+                :buffer (current-buffer)
+                :transforms '(gptel--transform-apply-preset)
+                :system (and prompt
+                             (with-current-buffer buffer
+                               (ob-gptel-find-prompt prompt system-message)))
+                :dry-run dry-run
+                :stream nil)))
+        (if dry-run
+            (thread-first
+              fsm
+              (gptel-fsm-info)
+              (plist-get :data)
+              (pp-to-string))
+          ob-gptel--uuid)))))
 
 (defun org-babel-prep-session:gptel (session params)
   "Prepare SESSION according to PARAMS.
