@@ -33,45 +33,6 @@
     (:backend . nil))
   "Default header arguments for gptel source blocks.")
 
-(defun ob-gptel--synchronous (func)
-  "Run the given asynchronous function FUNC synchronously."
-  (let ((result (cons nil nil)))
-    (funcall func
-             #'(lambda (res)
-                 (setf (cdr result) res)
-                 (setf (car result) t)))
-    (while (null (car result))
-      (accept-process-output nil 0.1))
-    (cdr result)))
-
-(cl-defun ob-gptel-request-synchronous
-    (&optional prompt &key callback
-               (buffer (current-buffer))
-               position context dry-run
-               (stream nil) (in-place nil)
-               (system gptel--system-message)
-               transforms (fsm (gptel-make-fsm)))
-  "Synchronous version of `gptel-request'."
-  (ob-gptel--synchronous
-   #'(lambda (komplete)
-       (gptel-request
-           prompt
-         :callback
-         #'(lambda (response info)
-             (if callback
-                 (funcall callback response info))
-             (if (stringp response)
-                 (funcall komplete response)))
-         :buffer buffer
-         :position position
-         :context context
-         :dry-run dry-run
-         :stream stream
-         :in-place in-place
-         :system system
-         :transforms transforms
-         :fsm fsm))))
-
 (defun org-babel-execute:gptel (body params)
   "Execute a gptel source block with BODY and PARAMS.
 This function sends the BODY text to GPTel and returns the response."
@@ -87,6 +48,7 @@ This function sends the BODY text to GPTel and returns the response."
          (original-system gptel--system-message)
          (original-stream gptel-stream)
          (original-backend gptel-backend)
+         (buffer (current-buffer))
          result)
 
     (with-temp-buffer
@@ -105,7 +67,23 @@ This function sends the BODY text to GPTel and returns the response."
         (let ((backend (gptel-get-backend backend-name)))
           (when backend
             (setq-local gptel-backend backend))))
-      (string-trim (ob-gptel-request-synchronous body)))))
+      (let ((ob-gptel--uuid (concat "<gptel_thinking_" (uuidgen-1) ">")))
+        (gptel-request
+            body
+          :callback
+          #'(lambda (response info)
+              (when (stringp response)
+                (with-current-buffer buffer
+                  (save-excursion
+                    (save-restriction
+                      (widen)
+                      (goto-char (point-min))
+                      (when (search-forward ob-gptel--uuid nil t)
+                        (replace-match (string-trim response) nil t)))))
+                (funcall komplete response)))
+          :buffer (current-buffer)
+          :stream nil)
+        ob-gptel--uuid))))
 
 (defun org-babel-prep-session:gptel (session params)
   "Prepare SESSION according to PARAMS.
