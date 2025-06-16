@@ -5,7 +5,7 @@
 ;; Author: John Wiegley
 ;; Keywords: org, babel, ai, gptel
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25.1") (org "9.0") (gptel "0.5"))
+;; Package-Requires: ((emacs "25.1") (org "9.0") (gptel "0.9.8.5"))
 
 ;;; Commentary:
 
