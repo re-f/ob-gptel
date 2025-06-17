@@ -4,14 +4,14 @@
 
 - Overview
 
-[[https://github.com/jwiegley/ob-gptel][ob-gptel]] provides an Org Babel backend for [[https://github.com/karthink/gptel][GPTel]], enabling AI-powered
+[[https://github.com/jwiegley/ob-gptel][ob-gptel]] provides an Org Babel backend for [[https://github.com/karthink/gptel][gptel]], enabling AI-powered
 interactions directly within Org mode source blocks. This allows you to
 seamlessly integrate AI responses into your Org documents, making it perfect
 for documentation, exploration, and interactive workflows.
 
 - Features
   - Execute AI queries as Org source blocks
-  - Full control over GPTel parameters (model, temperature, etc.)
+  - Full control over gptel parameters (model, temperature, etc.)
   - Support for system messages and conversation contexts
   - Dry-run mode to inspect API calls without sending them
   - Integration with Org's export and tangling features
@@ -21,18 +21,21 @@ for documentation, exploration, and interactive workflows.
 
 * Prerequisites
 
-- Emacs 25.1 or later
+- Emacs 26.3 or later
 - Org mode 9.0 or later
-- [[https://github.com/karthink/gptel][GPTel]] 0.5 or later
+- [[https://github.com/karthink/gptel][gptel]] 0.9.8.5 or later
 
-* Using straight.el
+
+* Installation
+
+** Using straight.el
 
 #+begin_src emacs-lisp
 (straight-use-package
  '(ob-gptel :type git :host github :repo "jwiegley/ob-gptel"))
 #+end_src
 
-* Manual Installation
+** Manual Installation
 
 1. Clone this repository
 2. Add to your load path and require:
@@ -52,7 +55,7 @@ Enable =gptel= as an Org Babel language, for example using:
  '((gptel . t)))
 #+end_src
 
-Enable completion of keywords and values for =gptel= blocks:
+In your Org mode buffer, enable completion of keywords and values for =gptel= blocks:
 
 #+begin_src emacs-lisp
 (add-hook 'completion-at-point-functions 'ob-gptel-capf nil t)
@@ -62,9 +65,14 @@ Enable completion of keywords and values for =gptel= blocks:
 
 #+begin_src emacs-lisp
 (use-package ob-gptel
+  :hook ((org-mode . ob-gptel-install-completions))
+  :defines ob-gptel-install-completions
   :config
   (add-to-list 'org-babel-load-languages '(gptel . t))
-  (add-hook 'completion-at-point-functions 'ob-gptel-capf nil t))
+  ;; Optional, for better completion-at-point
+  (defun ob-gptel-install-completions ()
+    (add-hook 'completion-at-point-functions
+              'ob-gptel-capf nil t)))
 #+end_src
 
 * Usage
@@ -140,7 +148,7 @@ What would this request look like?
 | =:max-tokens=  | nil       | Maximum tokens in response                           |
 | =:system=      | nil       | System message to set context                        |
 | =:stream=      | nil       | Enable streaming responses                           |
-| =:backend=     | nil       | GPTel backend to use                                 |
+| =:backend=     | nil       | gptel backend to use                                 |
 | =:dry-run=     | nil       | Show request without sending (=yes= to enable)         |
 | =:context=     | nil       | Additional context for the query                     |
 | =:prompt=      | nil       | Name of a previous block to use as conversation base |
@@ -152,7 +160,7 @@ What would this request look like?
 
 *** Multiple Backends
 
-If you have multiple GPTel backends configured:
+If you have multiple gptel backends configured:
 
 #+begin_src org
 ,#+begin_src gptel :backend "azure-gpt" :model gpt-4
@@ -180,10 +188,8 @@ Continue the story with an unexpected twist.
 
 *** Generating source blocks
 
-In a context like a [literate DevOps
-file](https://howardism.org/Technical/Emacs/literate-devops.html), one can use
-GPTel to generate the command to be executed in a shell script block, for
-example:
+In a context like a [[https://howardism.org/Technical/Emacs/literate-devops.html][literate DevOps file]], one can use gptel to generate the
+command to be executed in a shell script block, for example:
 
 #+begin_src gptel :preset gpt :wrap src sh
 GNU find command that search /tmp for all files with 2 or more hard-links.
@@ -215,8 +221,8 @@ find /tmp -type f -links +1
 
 * Troubleshooting
 
-- Ensure GPTel is properly configured and working before using ob-gptel
-- Check that your API keys are set up correctly in GPTel
+- Ensure gptel is properly configured and working before using ob-gptel
+- Check that your API keys are set up correctly in gptel
 - Use =:dry-run yes= to debug request formatting
 - Verify that =gptel= is in =org-babel-load-languages=
 
