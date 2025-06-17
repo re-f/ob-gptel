@@ -31,6 +31,7 @@
     (:system . nil)
     (:backend . nil)
     (:dry-run . nil)
+    (:preset . nil)
     (:context . nil)
     (:prompt . nil))
   "Default header arguments for gptel source blocks.")
@@ -66,6 +67,18 @@ and the result in the ASSISTANT role."
                     (mapcar #'list context)))
      (gptel--transform-add-context callback fsm)))
 
+(defmacro ob-gptel--with-preset (name &rest body)
+  "Run BODY with gptel preset NAME applied.
+This macro can be used to create `gptel-request' command with settings
+from a gptel preset applied.  NAME is the preset name, typically a
+symbol."
+  (declare (indent 1))
+  `(let ((name ,name))
+     (cl-progv (and name (gptel--preset-syms (gptel-get-preset name)))
+         nil
+       (if name (gptel--apply-preset name))
+       ,@body)))
+
 (defun org-babel-execute:gptel (body params)
   "Execute a gptel source block with BODY and PARAMS.
 This function sends the BODY text to GPTel and returns the response."
@@ -75,6 +88,7 @@ This function sends the BODY text to GPTel and returns the response."
          (system-message (cdr (assoc :system params)))
          (backend-name (cdr (assoc :backend params)))
          (prompt (cdr (assoc :prompt params)))
+         (preset (cdr (assoc :preset params)))
          (context (cdr (assoc :context params)))
          (dry-run (cdr (assoc :dry-run params)))
          (buffer (current-buffer))
@@ -105,26 +119,27 @@ This function sends the BODY text to GPTel and returns the response."
          (dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
          (ob-gptel--uuid (concat "<gptel_thinking_" (org-id-uuid) ">"))
          (fsm
-          (gptel-request
-              body
-            :callback
-            #'(lambda (response info)
-                (when (stringp response)
-                  (with-current-buffer buffer
-                    (save-excursion
-                      (save-restriction
-                        (widen)
-                        (goto-char (point-min))
-                        (when (search-forward ob-gptel--uuid nil t)
-                          (replace-match (string-trim response) nil t)))))))
-            :buffer (current-buffer)
-            :transforms (list #'gptel--transform-apply-preset
-                              (ob-gptel--add-context context))
-            :system (and prompt
-                         (with-current-buffer buffer
-                           (ob-gptel-find-prompt prompt system-message)))
-            :dry-run dry-run
-            :stream nil)))
+          (ob-gptel--with-preset (and preset (intern-soft preset))
+            (gptel-request
+                body
+              :callback
+              #'(lambda (response info)
+                  (when (stringp response)
+                    (with-current-buffer buffer
+                      (save-excursion
+                        (save-restriction
+                          (widen)
+                          (goto-char (point-min))
+                          (when (search-forward ob-gptel--uuid nil t)
+                            (replace-match (string-trim response) nil t)))))))
+              :buffer (current-buffer)
+              :transforms (list #'gptel--transform-apply-preset
+                                (ob-gptel--add-context context))
+              :system (and prompt
+                           (with-current-buffer buffer
+                             (ob-gptel-find-prompt prompt system-message)))
+              :dry-run dry-run
+              :stream nil))))
     (if dry-run
         (thread-first
           fsm
