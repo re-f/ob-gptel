@@ -92,54 +92,52 @@ This function sends the BODY text to GPTel and returns the response."
          (context (cdr (assoc :context params)))
          (dry-run (cdr (assoc :dry-run params)))
          (buffer (current-buffer))
-
-         (gptel-model
-          (if model
-              (if (symbolp model) model (intern model))
-            gptel-model))
-         (gptel-temperature
-          (if temperature
-              (string-to-number temperature)
-            gptel-temperature))
-         (gptel-max-tokens
-          (if max-tokens
-              (string-to-number max-tokens)
-            gptel-max-tokens))
-         (gptel--system-message
-          (or system-message
-              gptel--system-message))
-         (gptel-backend
-          (if backend-name
-              (let ((backend (gptel-get-backend backend-name)))
-                (if backend
-                    (setq-local gptel-backend backend)
-                  gptel-backend))
-            gptel-backend))
-
          (dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
          (ob-gptel--uuid (concat "<gptel_thinking_" (org-id-uuid) ">"))
          (fsm
           (ob-gptel--with-preset (and preset (intern-soft preset))
-            (gptel-request
-                body
-              :callback
-              #'(lambda (response info)
-                  (when (stringp response)
-                    (with-current-buffer buffer
-                      (save-excursion
-                        (save-restriction
-                          (widen)
-                          (goto-char (point-min))
-                          (when (search-forward ob-gptel--uuid nil t)
-                            (replace-match (string-trim response) nil t)))))))
-              :buffer (current-buffer)
-              :transforms (list #'gptel--transform-apply-preset
-                                (ob-gptel--add-context context))
-              :system (and prompt
-                           (with-current-buffer buffer
-                             (ob-gptel-find-prompt prompt system-message)))
-              :dry-run dry-run
-              :stream nil))))
+            (let ((gptel-model
+                   (if model
+                       (if (symbolp model) model (intern model))
+                     gptel-model))
+                  (gptel-temperature
+                   (if temperature
+                       (string-to-number temperature)
+                     gptel-temperature))
+                  (gptel-max-tokens
+                   (if max-tokens
+                       (string-to-number max-tokens)
+                     gptel-max-tokens))
+                  (gptel--system-message
+                   (or system-message
+                       gptel--system-message))
+                  (gptel-backend
+                   (if backend-name
+                       (let ((backend (gptel-get-backend backend-name)))
+                         (if backend
+                             (setq-local gptel-backend backend)
+                           gptel-backend))
+                     gptel-backend)))
+              (gptel-request
+                  body
+                :callback
+                #'(lambda (response info)
+                    (when (stringp response)
+                      (with-current-buffer buffer
+                        (save-excursion
+                          (save-restriction
+                            (widen)
+                            (goto-char (point-min))
+                            (when (search-forward ob-gptel--uuid nil t)
+                              (replace-match (string-trim response) nil t)))))))
+                :buffer (current-buffer)
+                :transforms (list #'gptel--transform-apply-preset
+                                  (ob-gptel--add-context context))
+                :system (and prompt
+                             (with-current-buffer buffer
+                               (ob-gptel-find-prompt prompt system-message)))
+                :dry-run dry-run
+                :stream nil)))))
     (if dry-run
         (thread-first
           fsm
