@@ -44,12 +44,27 @@ for documentation, exploration, and interactive workflows.
 
 * Configuration
 
-Enable =gptel= as an Org Babel language:
+Enable =gptel= as an Org Babel language, for example using:
 
 #+begin_src emacs-lisp
 (org-babel-do-load-languages
  'org-babel-load-languages
  '((gptel . t)))
+#+end_src
+
+Enable completion of keywords and values for =gptel= blocks:
+
+#+begin_src emacs-lisp
+(add-hook 'completion-at-point-functions 'ob-gptel-capf nil t)
+#+end_src
+
+** Using use-package
+
+#+begin_src emacs-lisp
+(use-package ob-gptel
+  :config
+  (add-to-list 'org-babel-load-languages '(gptel . t))
+  (add-hook 'completion-at-point-functions 'ob-gptel-capf nil t))
 #+end_src
 
 * Usage

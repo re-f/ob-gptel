@@ -164,6 +164,52 @@ GPTel blocks don't use sessions, so this is a no-op."
              (ob-gptel-var-to-gptel (cdr pair))))
    (org-babel--get-vars params)))
 
+;;; This function courtesy Karthik Chikmagalur <karthik.chikmagalur@gmail.com>
+(defun ob-gptel-capf ()
+  (save-excursion
+    (when (and (equal (org-thing-at-point) '("block-option" . "src"))
+               (save-excursion
+                 (re-search-backward "src[ \t]+gptel" (line-beginning-position) t)))
+      (let* (start (end (point))
+                   (word (buffer-substring-no-properties ;word being completed
+                          (progn (skip-syntax-backward "_w") (setq start (point))) end))
+                   (header-arg-p (eq (char-before) ?:))) ;completing a :header-arg?
+        (if header-arg-p
+            (let ((args '(("backend" . "The gptel backend to use")
+                          ("model"   . "The model to use")
+                          ("preset"  . "Use gptel preset")
+                          ("dry-run" . "Don't send, instead return payload?")
+                          ("system"  . "System message for request")
+                          ("prompt"  . "Include result of other block")
+                          ("context" . "List of files to include"))))
+              (list start end (all-completions word args)
+                    :annotation-function #'(lambda (c) (cdr-safe (assoc c args)))
+                    :exclusive 'no))
+          ;; Completing the value of a header-arg
+          (when-let* ((key (and (re-search-backward ;capture header-arg being completed
+                                 ":\\([^ \t]+?\\) +" (line-beginning-position) t)
+                                (match-string 1)))
+                      (comp-and-annotation
+                       (pcase key ;generate completion table and annotation function for key
+                         ("backend" (list gptel--known-backends))
+                         ("model"
+                          (cons (gptel-backend-models
+                                 (save-excursion ;find backend being used, or
+                                   (forward-line 0)
+                                   (if (re-search-forward
+                                        ":backend +\\([^ \t]+\\)" (line-end-position) t)
+                                       (gptel-get-backend (match-string 1))
+                                     gptel-backend))) ;fall back to buffer backend
+                                (lambda (m) (get (intern m) :description))))
+                         ("preset" (cons gptel--known-presets
+                                         (lambda (p) (thread-first
+                                                  (cdr (assq (intern p) gptel--known-presets))
+                                                  (plist-get :description)))))
+                         ("dry-run" (cons (list "t" "nil") (lambda (_) "" "Boolean"))))))
+            (list start end (all-completions word (car comp-and-annotation))
+                  :exclusive 'no
+                  :annotation-function (cdr comp-and-annotation))))))))
+
 (with-eval-after-load 'org-src
   (add-to-list 'org-src-lang-modes '("gptel" . text)))
 
