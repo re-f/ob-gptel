@@ -105,7 +105,7 @@ This function sends the BODY text to GPTel and returns the response."
           (when backend
             (setq-local gptel-backend backend))))
       (setq dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
-      (let* ((ob-gptel--uuid (concat "<gptel_thinking_" (uuidgen-1) ">"))
+      (let* ((ob-gptel--uuid (concat "<gptel_thinking_" (org-id-uuid) ">"))
              (fsm
               (gptel-request
                   body
