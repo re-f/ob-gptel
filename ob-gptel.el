@@ -151,6 +151,9 @@ GPTel blocks don't use sessions, so this is a no-op."
              (ob-gptel-var-to-gptel (cdr pair))))
    (org-babel--get-vars params)))
 
+(with-eval-after-load 'org-src
+  (add-to-list 'org-src-lang-modes '("gptel" . text)))
+
 (provide 'ob-gptel)
 
 ;;; ob-gptel.el ends here
