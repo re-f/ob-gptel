@@ -178,6 +178,23 @@ Continue the story with an unexpected twist.
 ,#+end_src
 #+end_src
 
+*** Generating source blocks
+
+In a context like a [literate DevOps
+file](https://howardism.org/Technical/Emacs/literate-devops.html), one can use
+GPTel to generate the command to be executed in a shell script block, for
+example:
+
+#+begin_src gptel :preset gpt :wrap src sh
+GNU find command that search /tmp for all files with 2 or more hard-links.
+Show only the final command with no explanation or thinking.
+#+end_src
+
+#+RESULTS:
+#+begin_src sh
+find /tmp -type f -links +1
+#+end_src
+
 * Tips and Tricks
 
 1. /Export Integration/: Use =:exports code=, =:exports results=, or =:exports both=
