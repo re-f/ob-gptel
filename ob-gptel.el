@@ -60,9 +60,12 @@ and the result in the ASSISTANT role."
 
 (defun ob-gptel--add-context (context)
   "Call `gptel--transform-add-context' with the given CONTEXT."
-  #'(lambda (callback fsm)
-      (setq-local gptel-context--alist (mapcar #'list context))
-      (gptel--transform-add-context callback fsm)))
+  `(lambda (callback fsm)
+     (setq-local gptel-context--alist
+                 ,(if (stringp context)
+                      (list (list context))
+                    (mapcar #'list context)))
+     (gptel--transform-add-context callback fsm)))
 
 (defun org-babel-execute:gptel (body params)
   "Execute a gptel source block with BODY and PARAMS.
