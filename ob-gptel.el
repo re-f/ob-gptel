@@ -29,7 +29,6 @@
     (:temperature . nil)
     (:max-tokens . nil)
     (:system . nil)
-    (:stream . nil)
     (:backend . nil)
     (:dry-run . nil)
     (:context . nil)
@@ -74,66 +73,65 @@ This function sends the BODY text to GPTel and returns the response."
          (temperature (cdr (assoc :temperature params)))
          (max-tokens (cdr (assoc :max-tokens params)))
          (system-message (cdr (assoc :system params)))
-         (stream (cdr (assoc :stream params)))
          (backend-name (cdr (assoc :backend params)))
          (prompt (cdr (assoc :prompt params)))
          (context (cdr (assoc :context params)))
          (dry-run (cdr (assoc :dry-run params)))
-         (original-model gptel-model)
-         (original-temperature gptel-temperature)
-         (original-max-tokens gptel-max-tokens)
-         (original-system gptel--system-message)
-         (original-stream gptel-stream)
-         (original-backend gptel-backend)
          (buffer (current-buffer))
-         result)
 
-    (with-temp-buffer
-      ;; Temporarily set gptel parameters if specified
-      (when model
-        (setq-local gptel-model (if (symbolp model) model (intern model))))
-      (when temperature
-        (setq-local gptel-temperature (string-to-number temperature)))
-      (when max-tokens
-        (setq-local gptel-max-tokens (string-to-number max-tokens)))
-      (when system-message
-        (setq-local gptel--system-message system-message))
-      (when stream
-        (setq-local gptel-stream (not (member stream '("no" "nil" "false")))))
-      (when backend-name
-        (let ((backend (gptel-get-backend backend-name)))
-          (when backend
-            (setq-local gptel-backend backend))))
-      (setq dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
-      (let* ((ob-gptel--uuid (concat "<gptel_thinking_" (org-id-uuid) ">"))
-             (fsm
-              (gptel-request
-                  body
-                :callback
-                #'(lambda (response info)
-                    (when (stringp response)
-                      (with-current-buffer buffer
-                        (save-excursion
-                          (save-restriction
-                            (widen)
-                            (goto-char (point-min))
-                            (when (search-forward ob-gptel--uuid nil t)
-                              (replace-match (string-trim response) nil t)))))))
-                :buffer (current-buffer)
-                :transforms (list #'gptel--transform-apply-preset
-                                  (ob-gptel--add-context context))
-                :system (and prompt
-                             (with-current-buffer buffer
-                               (ob-gptel-find-prompt prompt system-message)))
-                :dry-run dry-run
-                :stream nil)))
-        (if dry-run
-            (thread-first
-              fsm
-              (gptel-fsm-info)
-              (plist-get :data)
-              (pp-to-string))
-          ob-gptel--uuid)))))
+         (gptel-model
+          (if model
+              (if (symbolp model) model (intern model))
+            gptel-model))
+         (gptel-temperature
+          (if temperature
+              (string-to-number temperature)
+            gptel-temperature))
+         (gptel-max-tokens
+          (if max-tokens
+              (string-to-number max-tokens)
+            gptel-max-tokens))
+         (gptel--system-message
+          (or system-message
+              gptel--system-message))
+         (gptel-backend
+          (if backend-name
+              (let ((backend (gptel-get-backend backend-name)))
+                (if backend
+                    (setq-local gptel-backend backend)
+                  gptel-backend))
+            gptel-backend))
+
+         (dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
+         (ob-gptel--uuid (concat "<gptel_thinking_" (org-id-uuid) ">"))
+         (fsm
+          (gptel-request
+              body
+            :callback
+            #'(lambda (response info)
+                (when (stringp response)
+                  (with-current-buffer buffer
+                    (save-excursion
+                      (save-restriction
+                        (widen)
+                        (goto-char (point-min))
+                        (when (search-forward ob-gptel--uuid nil t)
+                          (replace-match (string-trim response) nil t)))))))
+            :buffer (current-buffer)
+            :transforms (list #'gptel--transform-apply-preset
+                              (ob-gptel--add-context context))
+            :system (and prompt
+                         (with-current-buffer buffer
+                           (ob-gptel-find-prompt prompt system-message)))
+            :dry-run dry-run
+            :stream nil)))
+    (if dry-run
+        (thread-first
+          fsm
+          (gptel-fsm-info)
+          (plist-get :data)
+          (pp-to-string))
+      ob-gptel--uuid)))
 
 (defun org-babel-prep-session:gptel (session params)
   "Prepare SESSION according to PARAMS.
