@@ -171,6 +171,25 @@ Using Azure OpenAI endpoint
 
 *** Building Conversations
 
+**** Using session header argument
+
+#+begin_src org
+,#+begin_src gptel :system "You are a creative writing assistant." :session foo
+Help me start a short story about a time traveler.
+,#+end_src
+
+,#+RESULTS:
+: In the year 2157, Dr. Elena Vasquez made a discovery that would either save
+: humanity or destroy the fabric of time itself. Her temporal displacement
+: device hummed quietly in the corner of her lab...
+
+,#+begin_src gptel :prompt conversation-start :session foo
+Continue the story with an unexpected twist.
+,#+end_src
+#+end_src
+
+**** Using explicit back-references
+
 #+begin_src org
 ,#+name: conversation-start
 ,#+begin_src gptel :system "You are a creative writing assistant."
