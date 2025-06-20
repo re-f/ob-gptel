@@ -152,6 +152,7 @@ What would this request look like?
 | =:dry-run=     | nil       | Show request without sending (=yes= to enable)         |
 | =:context=     | nil       | Additional context for the query                     |
 | =:prompt=      | nil       | Name of a previous block to use as conversation base |
+| =:session=     | nil       | Session name of blocks to use conversation           |
 | =:preset=      | nil       | Name of preset to use                                |
 | =:results=     | "replace" | How to handle results (standard Org babel)           |
 | =:exports=     | "both"    | What to export (standard Org babel)                  |

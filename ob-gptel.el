@@ -33,7 +33,8 @@
     (:dry-run . nil)
     (:preset . nil)
     (:context . nil)
-    (:prompt . nil))
+    (:prompt . nil)
+    (:session . nil))
   "Default header arguments for gptel source blocks.")
 
 (defun ob-gptel-find-prompt (prompt &optional system-message)
@@ -58,13 +59,63 @@ and the result in the ASSISTANT role."
                   (nconc directives (list (org-babel-read-result))))))))))
     directives))
 
+(defun ob-gptel--all-source-blocks (session)
+  "Return all Source blocks before point with `:session' set to SESSION."
+  (org-element-map
+      (save-restriction
+        (narrow-to-region (point-min) (point))
+        (org-element-parse-buffer))
+      '(src-block fixed-width)
+    (lambda (element)
+      (cond ((eq (org-element-type element) 'src-block)
+             (let ((start
+                    (org-element-property :begin element))
+                   (language
+                    (when (org-element-property :language element)
+                      (string-trim (org-element-property :language element))))
+                   (parameters
+                    (when (org-element-property :parameters element)
+                      (org-babel-parse-header-arguments
+                       (string-trim (org-element-property :parameters element))))))
+               (and (<= start (point))
+                    (equal session (cdr (assq :session parameters)))
+                    (list :start start
+                          :language language
+                          :parameters parameters
+                          :body
+                          (when (org-element-property :value element)
+                            (string-trim (org-element-property :value element)))
+                          :result
+                          (save-excursion
+                            (save-restriction
+                              (goto-char (org-element-property :begin element))
+                              (when (org-babel-where-is-src-block-result)
+                                (goto-char (org-babel-where-is-src-block-result))
+                                (org-babel-read-result))))))))))))
+
+(defun ob-gptel-find-session (session &optional system-message)
+  "Given a SESSION identifier, find the blocks/result pairs it names.
+The result is a directive in the format of `gptel-directives', which
+includes the SYSTEM-MESSAGE, and the blocks and their results as
+messages in the USER/ASSISTANT roles, respectively."
+  (let ((directives (list system-message)))
+    (let ((blocks (ob-gptel--all-source-blocks session)))
+      (dolist (block blocks)
+        (save-excursion
+          (nconc directives (list (plist-get block :body)))
+          (let ((result (plist-get block :result)))
+            (if result
+                (nconc directives (list result))
+              (nconc directives (list "\n")))))))
+    directives))
+
 (defun ob-gptel--add-context (context)
   "Call `gptel--transform-add-context' with the given CONTEXT."
   `(lambda (callback fsm)
      (setq-local gptel-context--alist
-                 ,(if (stringp context)
-                      (list (list context))
-                    (mapcar #'list context)))
+                 (quote ,(if (stringp context)
+                             (list (list context))
+                           (mapcar #'list context))))
      (gptel--transform-add-context callback fsm)))
 
 (defmacro ob-gptel--with-preset (name &rest body)
@@ -88,6 +139,7 @@ This function sends the BODY text to GPTel and returns the response."
          (system-message (cdr (assoc :system params)))
          (backend-name (cdr (assoc :backend params)))
          (prompt (cdr (assoc :prompt params)))
+         (session (cdr (assoc :session params)))
          (preset (cdr (assoc :preset params)))
          (context (cdr (assoc :context params)))
          (dry-run (cdr (assoc :dry-run params)))
@@ -133,9 +185,13 @@ This function sends the BODY text to GPTel and returns the response."
                 :buffer (current-buffer)
                 :transforms (list #'gptel--transform-apply-preset
                                   (ob-gptel--add-context context))
-                :system (and prompt
-                             (with-current-buffer buffer
-                               (ob-gptel-find-prompt prompt system-message)))
+                :system
+                (cond (prompt
+                       (with-current-buffer buffer
+                         (ob-gptel-find-prompt prompt system-message)))
+                      (session
+                       (with-current-buffer buffer
+                         (ob-gptel-find-session session system-message))))
                 :dry-run dry-run
                 :stream nil)))))
     (if dry-run
