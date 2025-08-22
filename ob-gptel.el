@@ -34,8 +34,7 @@
     (:preset . nil)
     (:context . nil)
     (:prompt . nil)
-    (:session . nil)
-    (:format . "markdown"))
+    (:session . nil))
   "Default header arguments for gptel source blocks.")
 
 (defun ob-gptel-find-prompt (prompt &optional system-message)
@@ -110,56 +109,6 @@ messages in the USER/ASSISTANT roles, respectively."
               (nconc directives (list "\n")))))))
     directives))
 
-(defun ob-gptel--markdown-to-org (text)
-  "Convert markdown TEXT to Org mode format."
-  (with-temp-buffer
-    (insert text)
-    (goto-char (point-min))
-    ;; Convert code blocks
-    (while (re-search-forward "^```\([^\n]*\)\n" nil t)
-      (let ((lang (match-string 1)))
-        (replace-match (format "#+begin_src %s\n" (if (string-empty-p lang) "" lang)) t t)
-        (when (re-search-forward "^```$" nil t)
-          (replace-match "#+end_src" t t))))
-    ;; Convert headers
-    (goto-char (point-min))
-    (while (re-search-forward "^\(#+\)\(#*\) " nil t)
-      (let ((level (+ (length (match-string 1)) (length (match-string 2)))))
-        (replace-match (concat (make-string level ?*) " ") t t)))
-    ;; Convert inline code
-    (goto-char (point-min))
-    (while (re-search-forward "`\([^`\n]+\)`" nil t)
-      (replace-match "~\\1~" t nil))
-    ;; Convert bold
-    (goto-char (point-min))
-    (while (re-search-forward "\\*\\*\([^*\n]+\)\\*\\*" nil t)
-      (replace-match "*\\1*" t nil))
-    ;; Convert italic (underscore)
-    (goto-char (point-min))
-    (while (re-search-forward "\\b_\([^_\n]+\)_\\b" nil t)
-      (replace-match "/\\1/" t nil))
-    ;; Convert italic (asterisk) - must come after bold
-    (goto-char (point-min))
-    (while (re-search-forward "\\*\([^*\n]+\)\\*" nil t)
-      (replace-match "/\\1/" t nil))
-    ;; Convert links
-    (goto-char (point-min))
-    (while (re-search-forward "\\[\([^]]+\)\\](\([^)]+\))" nil t)
-      (replace-match "[[\\2][\\1]]" t nil))
-    ;; Convert blockquotes
-    (goto-char (point-min))
-    (while (re-search-forward "^> " nil t)
-      (replace-match "#+begin_quote\n" t t)
-      (let ((start (point)))
-        (while (and (not (eobp))
-                    (looking-at "^> "))
-          (delete-char 2)
-          (forward-line))
-        (when (looking-at "^$")
-          (forward-line))
-        (insert "#+end_quote\n")))
-    (buffer-string)))
-
 (defun ob-gptel--add-context (context)
   "Call `gptel--transform-add-context' with the given CONTEXT."
   `(lambda (callback fsm)
@@ -193,7 +142,6 @@ This function sends the BODY text to GPTel and returns the response."
          (session (cdr (assoc :session params)))
          (preset (cdr (assoc :preset params)))
          (context (cdr (assoc :context params)))
-         (format (cdr (assoc :format params)))
          (dry-run (cdr (assoc :dry-run params)))
          (buffer (current-buffer))
          (dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
@@ -233,11 +181,7 @@ This function sends the BODY text to GPTel and returns the response."
                             (widen)
                             (goto-char (point-min))
                             (when (search-forward ob-gptel--uuid nil t)
-                              (let ((formatted-response
-                                     (if (equal format "org")
-                                         (ob-gptel--markdown-to-org (string-trim response))
-                                       (string-trim response))))
-                                (replace-match formatted-response nil t))))))))
+                              (replace-match (string-trim response) nil t)))))))
                 :buffer (current-buffer)
                 :transforms (list #'gptel--transform-apply-preset
                                   (ob-gptel--add-context context))
@@ -293,8 +237,7 @@ GPTel blocks don't use sessions, so this is a no-op."
                           ("dry-run" . "Don't send, instead return payload?")
                           ("system"  . "System message for request")
                           ("prompt"  . "Include result of other block")
-                          ("context" . "List of files to include")
-                          ("format"  . "Output format: markdown or org"))))
+                          ("context" . "List of files to include"))))
               (list start end (all-completions word args)
                     :annotation-function #'(lambda (c) (cdr-safe (assoc c args)))
                     :exclusive 'no))
@@ -318,8 +261,7 @@ GPTel blocks don't use sessions, so this is a no-op."
                                          (lambda (p) (thread-first
                                                   (cdr (assq (intern p) gptel--known-presets))
                                                   (plist-get :description)))))
-                         ("dry-run" (cons (list "t" "nil") (lambda (_) "" "Boolean")))
-                         ("format" (cons (list "markdown" "org") (lambda (_) "" "Output format"))))))
+                         ("dry-run" (cons (list "t" "nil") (lambda (_) "" "Boolean"))))))
             (list start end (all-completions word (car comp-and-annotation))
                   :exclusive 'no
                   :annotation-function (cdr comp-and-annotation))))))))
