@@ -1,0 +1,70 @@
+#+TITLE: Test ob-gptel Format Option
+
+* Test 1: Default markdown format (or explicitly set)
+
+#+begin_src gptel
+Explain what a linked list is with a simple example in Python
+#+end_src
+
+* Test 2: Org mode format
+
+#+begin_src gptel :format org
+Explain what a linked list is with a simple example in Python
+#+end_src
+
+* Test 3: Test markdown elements conversion
+
+#+begin_src gptel :format org :dry-run t
+Please format the following in markdown:
+- A header "Introduction"
+- Some **bold** text
+- Some *italic* text  
+- Some `inline code`
+- A code block with Python
+- A link to example.com
+- A blockquote
+#+end_src
+
+* Test Response Conversion
+
+This tests the markdown to org conversion with various elements:
+
+#+begin_example
+Input markdown:
+# Header 1
+## Header 2
+### Header 3
+
+**bold text** and *italic text* and `inline code`
+
+```python
+def hello():
+    print("Hello")
+```
+
+> This is a blockquote
+> with multiple lines
+
+[Link text](https://example.com)
+#+end_example
+
+Expected org output:
+#+begin_example
+* Header 1
+** Header 2
+*** Header 3
+
+*bold text* and /italic text/ and ~inline code~
+
+#+begin_src python
+def hello():
+    print("Hello")
+#+end_src
+
+#+begin_quote
+This is a blockquote
+with multiple lines
+#+end_quote
+
+[[https://example.com][Link text]]
+#+end_example

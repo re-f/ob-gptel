@@ -1,0 +1,41 @@
+#+title: Sample
+
+This is a sample GPTel interaction:
+
+#+begin_src gptel :backend ChatGPT :model gpt-4.1-mini :dry-run t :preset code :session foo
+alpha
+#+end_src
+
+#+begin_src gptel :backend ChatGPT :model gpt-4.1-mini :dry-run t :preset code :session foo
+beta
+#+end_src
+
+#+name: previous
+#+begin_src gptel :backend ChatGPT :model gpt-4.1-mini :dry-run t :preset code :session foo
+What is your name?
+#+end_src
+
+#+RESULTS: previous
+: (:model "gpt-4.1-2025-04-14" :messages
+:         [(:role "user" :content [(:type "text" :text "What is your name?")])]
+:         :stream :json-false :temperature 1.0)
+
+#+begin_src gptel :backend ChatGPT :model gpt-4.1-mini :context '("~/dl/hello.txt") :dry-run t :prompt previous
+#+begin_src gptel :backend ChatGPT :model gpt-4.1-mini :context '("~/dl/hello.txt") :dry-run t :session foo
+Is there anything that you aspire to?
+#+end_src
+
+#+RESULTS:
+#+begin_example
+(:model "gpt-4.1-mini" :messages
+        [(:role "system" :content
+                "\n\nRequest context:\n\nIn file `hello.txt`:\n\n```\nHello, world!\n\n```")
+         (:role "user" :content [(:type "text" :text "alpha")])
+         (:role "user" :content [(:type "text" :text "beta")])
+         (:role "user" :content [(:type "text" :text "What is your name?")])
+         (:role "assistant" :content
+                "(:model \"gpt-4.1-2025-04-14\" :messages\n        [(:role \"user\" :content [(:type \"text\" :text \"What is your name?\")])]\n        :stream :json-false :temperature 1.0)")
+         (:role "user" :content
+                [(:type "text" :text "Is there anything that you aspire to?")])]
+        :stream :json-false :temperature 1.0)
+#+end_example

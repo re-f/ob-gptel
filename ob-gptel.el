@@ -110,55 +110,9 @@ messages in the USER/ASSISTANT roles, respectively."
               (nconc directives (list "\n")))))))
     directives))
 
-(defun ob-gptel--markdown-to-org (text)
-  "Convert markdown TEXT to Org mode format."
-  (with-temp-buffer
-    (insert text)
-    (goto-char (point-min))
-    ;; Convert code blocks
-    (while (re-search-forward "^```\([^\n]*\)\n" nil t)
-      (let ((lang (match-string 1)))
-        (replace-match (format "#+begin_src %s\n" (if (string-empty-p lang) "" lang)) t t)
-        (when (re-search-forward "^```$" nil t)
-          (replace-match "#+end_src" t t))))
-    ;; Convert headers
-    (goto-char (point-min))
-    (while (re-search-forward "^\(#+\)\(#*\) " nil t)
-      (let ((level (+ (length (match-string 1)) (length (match-string 2)))))
-        (replace-match (concat (make-string level ?*) " ") t t)))
-    ;; Convert inline code
-    (goto-char (point-min))
-    (while (re-search-forward "`\([^`\n]+\)`" nil t)
-      (replace-match "~\\1~" t nil))
-    ;; Convert bold
-    (goto-char (point-min))
-    (while (re-search-forward "\\*\\*\([^*\n]+\)\\*\\*" nil t)
-      (replace-match "*\\1*" t nil))
-    ;; Convert italic (underscore)
-    (goto-char (point-min))
-    (while (re-search-forward "\\b_\([^_\n]+\)_\\b" nil t)
-      (replace-match "/\\1/" t nil))
-    ;; Convert italic (asterisk) - must come after bold
-    (goto-char (point-min))
-    (while (re-search-forward "\\*\([^*\n]+\)\\*" nil t)
-      (replace-match "/\\1/" t nil))
-    ;; Convert links
-    (goto-char (point-min))
-    (while (re-search-forward "\\[\([^]]+\)\\](\([^)]+\))" nil t)
-      (replace-match "[[\\2][\\1]]" t nil))
-    ;; Convert blockquotes
-    (goto-char (point-min))
-    (while (re-search-forward "^> " nil t)
-      (replace-match "#+begin_quote\n" t t)
-      (let ((start (point)))
-        (while (and (not (eobp))
-                    (looking-at "^> "))
-          (delete-char 2)
-          (forward-line))
-        (when (looking-at "^$")
-          (forward-line))
-        (insert "#+end_quote\n")))
-    (buffer-string)))
+;; Use gptel's built-in markdown to org converter
+(declare-function gptel--convert-markdown->org "gptel-org")
+(require 'gptel-org nil t) ;; Optional require for markdown->org conversion
 
 (defun ob-gptel--add-context (context)
   "Call `gptel--transform-add-context' with the given CONTEXT."
@@ -235,7 +189,7 @@ This function sends the BODY text to GPTel and returns the response."
                             (when (search-forward ob-gptel--uuid nil t)
                               (let ((formatted-response
                                      (if (equal format "org")
-                                         (ob-gptel--markdown-to-org (string-trim response))
+                                         (gptel--convert-markdown->org (string-trim response))
                                        (string-trim response))))
                                 (replace-match formatted-response nil t))))))))
                 :buffer (current-buffer)
