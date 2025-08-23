@@ -159,11 +159,11 @@ This function sends the BODY text to GPTel and returns the response."
                        (if (symbolp model) model (intern model))
                      gptel-model))
                   (gptel-temperature
-                   (if temperature
+                   (if (and temperature (stringp temperature))
                        (string-to-number temperature)
                      gptel-temperature))
                   (gptel-max-tokens
-                   (if max-tokens
+                   (if (and max-tokens (stringp max-tokens))
                        (string-to-number max-tokens)
                      gptel-max-tokens))
                   (gptel--system-message
@@ -179,7 +179,7 @@ This function sends the BODY text to GPTel and returns the response."
               (gptel-request
                   body
                 :callback
-                #'(lambda (response info)
+                #'(lambda (response _info)
                     (when (stringp response)
                       (with-current-buffer buffer
                         (save-excursion
@@ -212,7 +212,7 @@ This function sends the BODY text to GPTel and returns the response."
           (pp-to-string))
       ob-gptel--uuid)))
 
-(defun org-babel-prep-session:gptel (session params)
+(defun org-babel-prep-session:gptel (session _params)
   "Prepare SESSION according to PARAMS.
 GPTel blocks don't use sessions, so this is a no-op."
   session)
