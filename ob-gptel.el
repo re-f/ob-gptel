@@ -35,7 +35,7 @@
     (:context . nil)
     (:prompt . nil)
     (:session . nil)
-    (:format . "markdown"))
+    (:format . "org"))
   "Default header arguments for gptel source blocks.")
 
 (defun ob-gptel-find-prompt (prompt &optional system-message)
