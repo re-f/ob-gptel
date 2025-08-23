@@ -34,7 +34,8 @@
     (:preset . nil)
     (:context . nil)
     (:prompt . nil)
-    (:session . nil))
+    (:session . nil)
+    (:format . "markdown"))
   "Default header arguments for gptel source blocks.")
 
 (defun ob-gptel-find-prompt (prompt &optional system-message)
@@ -109,6 +110,10 @@ messages in the USER/ASSISTANT roles, respectively."
               (nconc directives (list "\n")))))))
     directives))
 
+;; Use gptel's built-in markdown to org converter
+(declare-function gptel--convert-markdown->org "gptel-org")
+(require 'gptel-org nil t) ;; Optional require for markdown->org conversion
+
 (defun ob-gptel--add-context (context)
   "Call `gptel--transform-add-context' with the given CONTEXT."
   `(lambda (callback fsm)
@@ -142,6 +147,7 @@ This function sends the BODY text to GPTel and returns the response."
          (session (cdr (assoc :session params)))
          (preset (cdr (assoc :preset params)))
          (context (cdr (assoc :context params)))
+         (format (cdr (assoc :format params)))
          (dry-run (cdr (assoc :dry-run params)))
          (buffer (current-buffer))
          (dry-run (and dry-run (not (member dry-run '("no" "nil" "false")))))
@@ -153,11 +159,11 @@ This function sends the BODY text to GPTel and returns the response."
                        (if (symbolp model) model (intern model))
                      gptel-model))
                   (gptel-temperature
-                   (if temperature
+                   (if (and temperature (stringp temperature))
                        (string-to-number temperature)
                      gptel-temperature))
                   (gptel-max-tokens
-                   (if max-tokens
+                   (if (and max-tokens (stringp max-tokens))
                        (string-to-number max-tokens)
                      gptel-max-tokens))
                   (gptel--system-message
@@ -173,7 +179,7 @@ This function sends the BODY text to GPTel and returns the response."
               (gptel-request
                   body
                 :callback
-                #'(lambda (response info)
+                #'(lambda (response _info)
                     (when (stringp response)
                       (with-current-buffer buffer
                         (save-excursion
@@ -181,7 +187,15 @@ This function sends the BODY text to GPTel and returns the response."
                             (widen)
                             (goto-char (point-min))
                             (when (search-forward ob-gptel--uuid nil t)
-                              (replace-match (string-trim response) nil t)))))))
+                              (let* ((match-start (match-beginning 0))
+                                     (match-end (match-end 0))
+                                     (formatted-response
+                                      (if (equal format "org")
+                                          (gptel--convert-markdown->org (string-trim response))
+                                        (string-trim response))))
+                                (goto-char match-start)
+                                (delete-region match-start match-end)
+                                (insert formatted-response))))))))
                 :buffer (current-buffer)
                 :transforms (list #'gptel--transform-apply-preset
                                   (ob-gptel--add-context context))
@@ -202,7 +216,7 @@ This function sends the BODY text to GPTel and returns the response."
           (pp-to-string))
       ob-gptel--uuid)))
 
-(defun org-babel-prep-session:gptel (session params)
+(defun org-babel-prep-session:gptel (session _params)
   "Prepare SESSION according to PARAMS.
 GPTel blocks don't use sessions, so this is a no-op."
   session)
@@ -237,7 +251,8 @@ GPTel blocks don't use sessions, so this is a no-op."
                           ("dry-run" . "Don't send, instead return payload?")
                           ("system"  . "System message for request")
                           ("prompt"  . "Include result of other block")
-                          ("context" . "List of files to include"))))
+                          ("context" . "List of files to include")
+                          ("format"  . "Output format: markdown or org"))))
               (list start end (all-completions word args)
                     :annotation-function #'(lambda (c) (cdr-safe (assoc c args)))
                     :exclusive 'no))
@@ -261,7 +276,8 @@ GPTel blocks don't use sessions, so this is a no-op."
                                          (lambda (p) (thread-first
                                                   (cdr (assq (intern p) gptel--known-presets))
                                                   (plist-get :description)))))
-                         ("dry-run" (cons (list "t" "nil") (lambda (_) "" "Boolean"))))))
+                         ("dry-run" (cons (list "t" "nil") (lambda (_) "" "Boolean")))
+                         ("format" (cons (list "markdown" "org") (lambda (_) "" "Output format"))))))
             (list start end (all-completions word (car comp-and-annotation))
                   :exclusive 'no
                   :annotation-function (cdr comp-and-annotation))))))))
