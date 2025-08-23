@@ -187,11 +187,15 @@ This function sends the BODY text to GPTel and returns the response."
                             (widen)
                             (goto-char (point-min))
                             (when (search-forward ob-gptel--uuid nil t)
-                              (let ((formatted-response
-                                     (if (equal format "org")
-                                         (gptel--convert-markdown->org (string-trim response))
-                                       (string-trim response))))
-                                (replace-match formatted-response nil t))))))))
+                              (let* ((match-start (match-beginning 0))
+                                     (match-end (match-end 0))
+                                     (formatted-response
+                                      (if (equal format "org")
+                                          (gptel--convert-markdown->org (string-trim response))
+                                        (string-trim response))))
+                                (goto-char match-start)
+                                (delete-region match-start match-end)
+                                (insert formatted-response))))))))
                 :buffer (current-buffer)
                 :transforms (list #'gptel--transform-apply-preset
                                   (ob-gptel--add-context context))
